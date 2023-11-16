@@ -1,0 +1,4 @@
+# MacOS
+.DS_Store
+# Nix build path
+result
