@@ -61,7 +61,7 @@ executable lumea
     build-depends:    base ^>=4.16.4.0, pandoc ^>=2.19.0
 
     -- Directories containing source files.
-    hs-source-dirs:   app
+    hs-source-dirs:   src
 
     -- Base language which the package is written in.
     default-language: Haskell2010

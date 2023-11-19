@@ -2,3 +2,5 @@
 .DS_Store
 # Nix build path
 result
+# Cabal build artifacts
+dist-newstyle

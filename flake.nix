@@ -10,12 +10,16 @@
     in {
       packages.aarch64-darwin.default = pkgs.haskellPackages.developPackage {
         root = ./.;
+        modifier = drv:
+          pkgs.haskell.lib.addBuildTools drv (with pkgs.haskellPackages; [
+            cabal-install
+            ghcid
+          ]);
       };
       devShells.aarch64-darwin.default = pkgs.mkShell {
-        inputsFrom = [ self.packages.aarch64-darwin.default ];
+        inputsFrom = [ self.packages.aarch64-darwin.default.env ];
         packages = with pkgs; [ 
           haskell-language-server
-          ghcid
         ];
       };
     };
