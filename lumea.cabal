@@ -52,13 +52,13 @@ executable lumea
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules:    Server
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.16.4.0, pandoc ^>=2.19.0, pandoc-types, text, filepath, directory
+    build-depends:    base ^>=4.16.4.0, pandoc ^>=2.19.0, pandoc-types, text, filepath, directory, network, bytestring
 
     -- Directories containing source files.
     hs-source-dirs:   src
