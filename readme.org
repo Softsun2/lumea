@@ -1,4 +1,4 @@
 * Lumea
-A [[https://pandoc.org/][Pandoc]] wrapper that converts directory structure and content between
-markup formats. Useful for writing static websites in your favorite
-markup formats such as org or markdown.
+Hacky webservice using [[https://pandoc.org/][Pandoc]] to convert markup formats to static
+html. Useful for writing static websites in your favorite markup
+formats such as org or markdown.
