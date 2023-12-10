@@ -2,32 +2,29 @@ module Server where
 
 import Network.Socket
 import Network.Socket.ByteString (recv, sendAll)
+import qualified System.Directory as D
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Control.Concurrent
 
-dummyOkResponse :: String
-dummyOkResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n"
+okHeader :: String
+okHeader = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n"
 
-dummyBadResponse :: String
-dummyBadResponse = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\n\r\n400 Bad Request: Your request is invalid.\r\n"
-
-respondToGet :: Socket -> String -> IO ()
-respondToGet c _ = sendAll c $ BSC.pack dummyOkResponse
+badReqHeader :: String
+badReqHeader = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n"
 
 respondToBadRequest :: Socket -> IO ()
-respondToBadRequest c = sendAll c $ BSC.pack dummyBadResponse
+respondToBadRequest c = sendAll c $ BSC.pack badReqHeader
 
 data ReadResult =
   Parsable BSC.ByteString |
   ClientDisconnect |
-  BadRequest deriving Show
+  BadRequest
 
 readGet :: Socket -> IO ReadResult
 readGet s = do
   -- Only read 4096 bytes. If this causes a short read the client's
-  -- connection will reset when sending the response. Maybe they
-  -- should send a reasonably sized request...
+  -- connection will reset when sending the response.
   packet <- recv s 4096
   let (getHeader, _) = BS.breakSubstring (BSC.pack "\r\n") packet
   let parsableGetHeader =
@@ -38,9 +35,12 @@ readGet s = do
       (False, True) -> return $ Parsable getHeader
       (True, _) -> return ClientDisconnect
       (_, False) -> return BadRequest
-    
-getOnlyServer :: Socket -> IO ()
-getOnlyServer s = do
+
+parseResource :: String -> FilePath
+parseResource str = tail $ words str !! 1
+
+getOnlyServer :: Socket -> [FilePath] -> IO ()
+getOnlyServer s roots = do
   (c, _) <- accept s
   getRequest <- readGet c
   case getRequest of
@@ -48,7 +48,16 @@ getOnlyServer s = do
     ClientDisconnect -> return ()
     BadRequest -> respondToBadRequest c
   close c
-  getOnlyServer s
+  getOnlyServer s roots
+  where
+    respondToGet :: Socket -> String -> IO ()
+    respondToGet c request = do
+      resource <- D.findFile roots (parseResource request)
+      case resource of
+        Just fp -> do
+          contents <- readFile fp
+          sendAll c $ BSC.pack okHeader <> BSC.pack contents
+        Nothing -> sendAll c $ BSC.pack badReqHeader
 
 run :: IO ()
 run = do
@@ -60,6 +69,6 @@ run = do
   
   bind s $ SockAddrInet port addr
   listen s maxListenQueueLength
-  getOnlyServer s
+  getOnlyServer s ["/Users/softsun2/softsun2/dev/personal/lumea/site/html"]
 
   close s
