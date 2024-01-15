@@ -1,4 +1,0 @@
-* Lumea
-Hacky webservice using [[https://pandoc.org/][Pandoc]] to convert markup formats to static
-html. Useful for writing static websites in your favorite markup
-formats such as org or markdown.

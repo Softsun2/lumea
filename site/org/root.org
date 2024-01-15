@@ -1,7 +1,0 @@
-* Root
-
-* Nav
-- [[file:posts/hello-world.org][posts]]
-- [[file:stream.org][stream]]
-
-About me.
