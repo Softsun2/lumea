@@ -4,3 +4,5 @@
 result
 # Cabal build artifacts
 dist-newstyle
+# lumea site paths
+site
