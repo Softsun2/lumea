@@ -1,8 +1,8 @@
 module Lumea where
 
 import Data.Text as T
-import System.Directory (findFile, getCurrentDirectory, makeAbsolute)
-import System.FilePath (isExtensionOf, makeRelative, replaceExtension, takeDirectory, takeExtension, (-<.>), (</>))
+import System.Directory (doesFileExist, findFile, getCurrentDirectory, listDirectory, makeAbsolute)
+import System.FilePath (isExtensionOf, makeRelative, (-<.>), (</>))
 import Text.Pandoc
 import Text.Pandoc.Walk (Walkable (walk))
 
@@ -11,12 +11,10 @@ getLumeaRoot Nothing = getCurrentDirectory
 getLumeaRoot (Just userPath) = return userPath
 
 getLumeaMarkupPath :: IO FilePath
-getLumeaMarkupPath =
-  getLumeaRoot Nothing >>= (\root -> return $ root </> "site/markup")
+getLumeaMarkupPath = getLumeaRoot Nothing >>= (\root -> return $ root </> "site/markup")
 
 getLumeaHtmlPath :: IO FilePath
-getLumeaHtmlPath =
-  getLumeaRoot Nothing >>= (\root -> return $ root </> "site/html")
+getLumeaHtmlPath = getLumeaRoot Nothing >>= (\root -> return $ root </> "site/html")
 
 isDirty :: FilePath -> Bool
 isDirty _ = True
@@ -60,3 +58,20 @@ buildFile markupSrc
       dest <- getMirrorPath markupSrc
       writeFile dest $ T.unpack htmlContents
   | otherwise = return ()
+
+buildSite :: IO ()
+buildSite =
+  getLumeaMarkupPath >>= buildDir
+  where
+    buildDir :: FilePath -> IO ()
+    buildDir dir = do
+      entries <- listDirectory dir
+      mapM_ buildEntry entries
+      where
+        buildEntry :: FilePath -> IO ()
+        buildEntry entry = do
+          let fp = dir </> entry
+          entryIsFile <- doesFileExist fp
+          if entryIsFile
+            then buildFile fp
+            else buildDir fp
