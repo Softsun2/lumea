@@ -1,4 +1,4 @@
-module Lumea where
+module Main where
 
 -- import Text.Pandoc
 -- import Text.Pandoc.Walk
@@ -86,7 +86,6 @@ module Lumea where
 --        take (length splitFp - length splitRoot) $ reverse splitFp)
 --   | otherwise = error $ root <> " is not the root of " <> fp <> "."
 
-
 -- Entry point.
 main :: IO ()
 main = do
@@ -118,5 +117,3 @@ main = do
 
   -- cwdFilePath <- getCurrentDirectory
   -- filePathApply putStrLn cwdFilePath
-
-  -- before worrying about any details let's just get a "site" converted!
