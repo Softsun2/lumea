@@ -1,4 +1,4 @@
-module Lumea where
+module Site where
 
 import Data.Text as T
 import System.Directory (findFile, getCurrentDirectory, makeAbsolute)
