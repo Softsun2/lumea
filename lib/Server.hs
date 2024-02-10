@@ -17,10 +17,7 @@ badReqHeader = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n"
 respondToBadRequest :: Socket -> IO ()
 respondToBadRequest c = sendAll c $ BSC.pack badReqHeader
 
-data ReadResult =
-  Parsable BSC.ByteString |
-  ClientDisconnect |
-  BadRequest
+data ReadResult = Parsable BSC.ByteString | ClientDisconnect | BadRequest
 
 readGet :: Socket -> IO ReadResult
 readGet s = do
@@ -64,7 +61,6 @@ getOnlyServer s roots = do
         Parsable request -> respond c $ BSC.unpack request
         ClientDisconnect -> return ()
         BadRequest -> respondToBadRequest c
-    
 
 run :: IO ()
 run = do
