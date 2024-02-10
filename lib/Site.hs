@@ -9,7 +9,11 @@ import Text.Pandoc hiding (ReaderT)
 import Text.Pandoc.Walk (Walkable (walk))
 
 getLumeaRoot :: ReaderT (Maybe FilePath) IO FilePath
-getLumeaRoot = fromMaybe <$> liftIO getCurrentDirectory <*> ask
+getLumeaRoot = do
+  userPath <- ask
+  case userPath of
+    Just userPath' -> liftIO $ makeAbsolute userPath'
+    Nothing -> liftIO getCurrentDirectory
 
 getLumeaMarkupPath :: ReaderT (Maybe FilePath) IO FilePath
 getLumeaMarkupPath = (</> "site/markup") <$> getLumeaRoot
