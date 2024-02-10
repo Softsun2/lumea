@@ -3,8 +3,8 @@ module Site (buildSite) where
 import Control.Monad.Reader
 import Data.Maybe (fromMaybe)
 import Data.Text as T
-import System.Directory (doesFileExist, findFile, getCurrentDirectory, listDirectory, makeAbsolute)
-import System.FilePath (isExtensionOf, makeRelative, (-<.>), (</>))
+import System.Directory (createDirectoryIfMissing, doesFileExist, doesPathExist, findFile, getCurrentDirectory, listDirectory, makeAbsolute)
+import System.FilePath (isExtensionOf, makeRelative, takeDirectory, (-<.>), (</>))
 import Text.Pandoc hiding (ReaderT)
 import Text.Pandoc.Walk (Walkable (walk))
 
@@ -61,9 +61,10 @@ buildFile markupSrc
       markupContents <- liftIO $ readFile markupSrc
       htmlContents <- liftIO $ toHtml $ T.pack markupContents
       dest <- getMirrorPath markupSrc
+      liftIO $ createDirectoryIfMissing True (takeDirectory dest)
       liftIO $ writeFile dest $ T.unpack htmlContents
   | otherwise = return ()
-    
+
 buildDir :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildDir dir = do
   entries <- liftIO $ listDirectory dir
@@ -79,5 +80,5 @@ buildDir dir = do
 
 buildSite :: Maybe FilePath -> IO ()
 buildSite userPath = do
-    markupPath <- runReaderT getLumeaMarkupPath userPath
-    runReaderT (buildDir markupPath) userPath
+  markupPath <- runReaderT getLumeaMarkupPath userPath
+  runReaderT (buildDir markupPath) userPath
