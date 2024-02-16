@@ -4,6 +4,7 @@
 result
 # Cabal build artifacts
 dist-newstyle
+# Cabal local settings
+cabal.project.local
 # lumea site paths
-site
-prog.md
+site/**
