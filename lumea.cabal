@@ -16,6 +16,7 @@ library
         base ^>=4.16.4.0,
         pandoc, pandoc-types,
         monads-fd,
+        containers,
         text,
         filepath, directory,
         network, bytestring
