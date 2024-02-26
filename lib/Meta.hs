@@ -2,123 +2,42 @@
 
 module Meta where
 
-import Data.Sequence
-import Data.Text
-import Text.Pandoc
-import Text.Pandoc.Builder
-import Text.Pandoc.Walk
+import Data.Functor (($>))
+import Text.Parsec
+import qualified Data.Map as M
+import qualified Data.Yaml as Y
+import qualified Text.Pandoc as P
+import qualified Data.ByteString.Char8 as BS
 
--- Design:
--- I don't like mixing languages e.g. yaml header with markup body. I don't
--- like seperating declarations from their references e.g. a meta-lockfile
--- referenced from source files.
---
--- What if we could create a strict semantic structure that is compliant with
--- whichever source markup format?
---
--- This format should:
---     - format = read $ write format
---     - be able to encode metadata
---         - typeless data (strings)
---         - 1D lists of typeless data (strings)
---
--- 1. build metadata
--- 2. subsitute metadata
--- 3. convert tail (minus metadata block) to html
+test :: Parsec String () a -> String -> Either ParseError a
+test parsec = parse parsec ""
 
-type Metadata = [Pair]
+dollarParser :: Parsec String () String
+dollarParser = many $ noneOf ['$']
 
-type Pair = ([Char], Value) -- string key, value
+substituteParser :: Parsec String () String
+substituteParser = char '$' *> many1 (noneOf ['$', ' ']) <* lookAhead (char '$')
 
-data Value = Value Char | ValueList [Char] -- string or 1D list of strings
+-- need to wrap my head around this one :(
+-- substitutesParser :: Parsec String () String
+-- parse to dollar
+--   success -> try substituteParser <> recurse
+--   fail -> pure []
 
--- with implicit grammar rules
-parseMetadata :: Seq Block -> Maybe Metadata
-parseMetadata blocks = case viewl blocks of
-  Header 3 _ [Str "lumea-metadata"] :< blocks' -> parseBulletList blocks'
-  _ -> Nothing
+-- Format:
+-- yaml code block containing metadata
+-- rest of markdown format
+-- read -> extract arbitrary metadata -> filter substitutions -> filter metadata block -> write
 
-parseBulletList :: Seq Block -> Maybe Metadata
-parseBulletList blocks = case viewl blocks of
-  BulletList [items] :< _ -> parseListItems $ Data.Sequence.fromList items
-  _ -> Nothing
+newtype Metadata = Metadata (M.Map String String) deriving (Show)
 
--- pairs can be key: value or key: list of values
--- just worry about non-lists for now
-parseListItems :: Seq Block -> Maybe Metadata
-parseListItems items = case viewl items of
-  Plain [key, space, value] :< items' ->
-        -- combine this step's metadata construction
-        -- continue parsing the item sequence
-        -- Maybe Metadata -> Maybe Metadata -> Maybe Metadata
-        -- where: l is Nothing -> nothing
-        --        just l && just r -> Just l cons r
-        --        _ -> Just l
-        Nothing
-  _ -> Nothing
+instance Y.FromJSON Metadata where
+  parseJSON = Y.withObject "Metadata" (\o -> Metadata <$> o Y..: "lumea-metadata")
 
--- grammar rules
-isKey :: Inline -> Bool
-isKey i = case i of
-  Str text -> Data.Text.last text == ':'
-  _ -> False
+getMetaData :: String -> Metadata
+getMetaData s = case Y.decodeEither' $ BS.pack s of
+  Left e -> error $ Y.prettyPrintParseException e
+  Right metadata -> metadata
 
-isValue :: Inline -> Bool
-isValue i = case i of
-  Str _ -> True
-  _ -> False
-
-isLumeaMetadataBlock :: [Block] -> Bool
-isLumeaMetadataBlock bs = case bs of
-  [Header 3 _ [Str "lumea-metadata"], BulletList _] -> True
-  _ -> False
-
--- subject to change
--- will this support all the meta data I need?
--- this is clunky...
--- what if it wasn't...
-exampleMetadataBlocks :: Blocks
-exampleMetadataBlocks =
-  header 3 (str "lumea-metadata")
-    <> bulletList
-      [ plain $ str "key1" <> space <> str "value1",
-        plain $ str "key2" <> space <> str "value2"
-      ]
-
--- utility to test for now
-readMarkdownFile :: FilePath -> IO Pandoc
-readMarkdownFile f = readFile f >>= runIOorExplode . readMarkdown def . Data.Text.pack
-
-readOrgFile :: FilePath -> IO Pandoc
-readOrgFile f = readFile f >>= runIOorExplode . readOrg def . Data.Text.pack
-
-toMarkdown :: Pandoc -> IO Text
-toMarkdown p = runIOorExplode $ do
-  template <- compileDefaultTemplate "html"
-  writeMarkdown def {writerTemplate = Just template} p
-
-toOrg :: Pandoc -> IO Text
-toOrg p = runIOorExplode $ do
-  template <- compileDefaultTemplate "html"
-  writeOrg def {writerTemplate = Just template} p
-
-toHtml :: Pandoc -> IO Text
-toHtml p = runIOorExplode $ do
-  template <- compileDefaultTemplate "html"
-  writeHtml5String def {writerTemplate = Just template} p
-
--- what needs to be implemented
--- filterMetadata :: Pandoc -> Pandoc
--- filterMetadata (Pandoc m blocks) =
--- take head block
--- if head block is the magic header format
--- walk metadata and set each meta data
---    case head blocks of
-
--- filterSubstituteMetadata :: Pandoc -> Pandoc
--- filterSubstituteMetadata = walk substituteMetadata
---   where
---     substituteMetadata :: Inline -> Inline
---     substituteMetadata i =
---       if contains $*$
---       replace with Metadata[$*$]
+-- substitute $key$ from metadata
+-- filterSubstitute :: P.Inline -> P.Inline
