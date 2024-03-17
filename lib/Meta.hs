@@ -2,27 +2,26 @@
 
 module Meta where
 
+import qualified Data.ByteString.Char8 as BS
+import Data.Char (isAlphaNum)
 import Data.Functor (($>))
-import Text.Parsec
 import qualified Data.Map as M
 import qualified Data.Yaml as Y
 import qualified Text.Pandoc as P
-import qualified Data.ByteString.Char8 as BS
+import Text.Parsec
+import Text.Parsec.String (Parser)
 
-test :: Parsec String () a -> String -> Either ParseError a
+test :: Parser a -> String -> Either ParseError a
 test parsec = parse parsec ""
 
-dollarParser :: Parsec String () String
-dollarParser = many $ noneOf ['$']
+seekDollar :: Parser ()
+seekDollar = skipMany $ noneOf ['$']
 
-substituteParser :: Parsec String () String
-substituteParser = char '$' *> many1 (noneOf ['$', ' ']) <* lookAhead (char '$')
+substitute :: Parser String
+substitute = char '$' *> many1 (noneOf [' ', '$']) <* lookAhead (char '$')
 
--- need to wrap my head around this one :(
--- substitutesParser :: Parsec String () String
--- parse to dollar
---   success -> try substituteParser <> recurse
---   fail -> pure []
+substitutes :: Parser [String]
+substitutes = seekDollar *> ((:) <$> try substitute <*> substitutes) <|> return []
 
 -- Format:
 -- yaml code block containing metadata
