@@ -51,6 +51,7 @@ test-suite meta-test
         base,
         HUnit,
         pandoc, pandoc-types,
+        parsec,
         text,
         Lumea,
         filepath, directory
