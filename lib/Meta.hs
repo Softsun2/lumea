@@ -10,22 +10,29 @@ import qualified Data.Yaml as Y
 import qualified Text.Pandoc as P
 import Text.Parsec
 import Text.Parsec.String (Parser)
+import Text.Parsec.Token
 
 test :: Parser a -> String -> Either ParseError a
 test parsec = parse parsec ""
 
-seekDollar :: Parser ()
-seekDollar = skipMany $ noneOf ['$']
+seekDollar :: Parser String
+seekDollar = manyTill anyChar $ lookAhead $ char '$'
 
 substitute :: Parser String
-substitute = char '$' *> many1 (noneOf [' ', '$']) <* lookAhead (char '$')
+substitute =
+  char '$'
+    *> many1 (noneOf [' ', '$'])
+    <* lookAhead (char '$') -- could be the start of the next substitute
 
+-- todo: simplify me
 substitutes :: Parser [String]
-substitutes = seekDollar *> ((:) <$> try substitute <*> substitutes) <|> return []
+substitutes =
+  try seekDollar
+    *> ( ((:) <$> try substitute <*> substitutes) -- try to capture substitute
+           <|> (char '$' *> substitutes) -- otherwise continue
+       )
+    <|> return []
 
--- Format:
--- yaml code block containing metadata
--- rest of markdown format
 -- read -> extract arbitrary metadata -> filter substitutions -> filter metadata block -> write
 
 newtype Metadata = Metadata (M.Map String String) deriving (Show)
