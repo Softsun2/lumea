@@ -8,12 +8,10 @@ import Data.Functor (($>))
 import qualified Data.Map as M
 import qualified Data.Yaml as Y
 import qualified Text.Pandoc as P
+import Text.Pandoc.Parsing (many1Till)
 import Text.Parsec
 import Text.Parsec.String (Parser)
 import Text.Parsec.Token
-
-test :: Parser a -> String -> Either ParseError a
-test parsec = parse parsec ""
 
 seekDollar :: Parser String
 seekDollar = manyTill anyChar $ lookAhead $ char '$'
@@ -21,8 +19,8 @@ seekDollar = manyTill anyChar $ lookAhead $ char '$'
 substitute :: Parser String
 substitute =
   char '$'
-    *> many1 (noneOf [' ', '$'])
-    <* lookAhead (char '$') -- could be the start of the next substitute
+    *> many1Till anyChar (try $ choice (fmap lookAhead [char '$', space]))
+    <* lookAhead (char '$')
 
 -- todo: simplify me
 substitutes :: Parser [String]
