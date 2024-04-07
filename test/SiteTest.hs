@@ -1,12 +1,13 @@
 module Main where
 
 import qualified Site
-import System.Directory (doesPathExist, listDirectory, makeAbsolute, removePathForcibly)
-import System.FilePath ((</>))
-import Test.HUnit
+import           System.Directory (doesPathExist, listDirectory, makeAbsolute
+                                 , removePathForcibly)
+import           System.FilePath ((</>))
+import           Test.HUnit
 
 -- tests building a site from an example markup src directory:
--- test/lumea-root/site/markup
+-- test/site-test/site/markup
 -- ├── dir1
 -- │   └── dir2
 -- │       └── deep-file.org
@@ -17,38 +18,38 @@ import Test.HUnit
 -- └── stream.org
 buildSiteFromPathTest :: IO Test
 buildSiteFromPathTest = do
-  let lumeaRoot = "test/lumea-root"
+  let lumeaRoot = "test/site-test"
   let htmlDir = lumeaRoot </> "site/html"
   Site.buildSite $ Just lumeaRoot
-
   rootExists <- doesPathExist $ htmlDir </> "root.html"
   streamExists <- doesPathExist $ htmlDir </> "stream.html"
   postsExists <- doesPathExist $ htmlDir </> "posts"
   helloWorldExists <- doesPathExist $ htmlDir </> "posts/hello-world.html"
   dir1Exists <- doesPathExist $ htmlDir </> "dir1"
   dir2Exists <- doesPathExist $ htmlDir </> "dir1" </> "dir2"
-  deepFileExists <- doesPathExist $ htmlDir </> "dir1" </> "dir2" </> "deep-file.html"
+  deepFileExists
+    <- doesPathExist $ htmlDir </> "dir1" </> "dir2" </> "deep-file.html"
   emptyDirExists <- doesPathExist $ htmlDir </> "empty-dir"
-
-  return $
-    TestLabel "Build site from path" $
-      TestList
-        [ TestCase (assertBool "root.org exists" rootExists),
-          TestCase (assertBool "streame.org exists" rootExists),
-          TestCase (assertBool "posts exists" rootExists),
-          TestCase (assertBool "posts/hello-world.org exists" rootExists),
-          TestCase (assertBool "dir1 exists" dir1Exists),
-          TestCase (assertBool "dir1/dir2 exists" dir2Exists),
-          TestCase (assertBool "dir1/dir2/deep-file.html exists" deepFileExists),
-          TestCase (assertBool "empty-dir does not exist" $ not emptyDirExists)
-        ]
+  return
+    $ TestLabel "Build site from path"
+    $ TestList
+      [ TestCase (assertBool "root.html exists" rootExists)
+      , TestCase (assertBool "stream.html exists" streamExists)
+      , TestCase (assertBool "posts exists" postsExists)
+      , TestCase (assertBool "posts/hello-world.html exists" helloWorldExists)
+      , TestCase (assertBool "dir1 exists" dir1Exists)
+      , TestCase (assertBool "dir1/dir2 exists" dir2Exists)
+      , TestCase (assertBool "dir1/dir2/deep-file.html exists" deepFileExists)
+      , TestCase (assertBool "empty-dir does not exist" $ not emptyDirExists)]
 
 buildSiteTest :: IO Test
 buildSiteTest = do
   -- clean target dir before testing
-  listDirectory "test/lumea-root/site/html" >>= mapM_ removePathForcibly
+  let htmlDir = "test/site-test/site/html"
+  listDirectory htmlDir >>= mapM_ (removePathForcibly . (htmlDir </>))
   -- run tests
   buildSiteFromPathTest
 
 main :: IO ()
-main = buildSiteTest >>= runTestTTAndExit
+main = do
+  buildSiteTest >>= runTestTTAndExit
