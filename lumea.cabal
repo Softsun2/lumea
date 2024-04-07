@@ -13,28 +13,33 @@ common warnings
 
 library
     build-depends:
-        base ^>=4.16.4.0,
+        base,
         pandoc, pandoc-types,
         monads-fd,
         text,
+        time,
+        iso8601-time,
+        containers,
+        yaml,
+        parsec,
         filepath, directory,
         network, bytestring
     hs-source-dirs: lib
-    exposed-modules: Site, Server
+    exposed-modules: Site, Meta, Server
     default-language: Haskell2010
 
 executable lumea
     import:           warnings
     main-is:          Main.hs
     hs-source-dirs:   src
-    build-depends: base ^>=4.16.4.0, Lumea
+    build-depends: base, Lumea
     default-language: Haskell2010
 
 test-suite site-test
     type: exitcode-stdio-1.0
     main-is: SiteTest.hs
     build-depends:
-        base ^>=4.16.4.0,
+        base,
         HUnit,
         Lumea,
         filepath, directory

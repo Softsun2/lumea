@@ -1,6 +1,5 @@
 module Main where
 
-import Site
 import qualified Site
 import System.Directory (doesPathExist, listDirectory, makeAbsolute, removePathForcibly)
 import System.FilePath ((</>))

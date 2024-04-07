@@ -1,19 +1,27 @@
 module Site (buildSite) where
 
-import Control.Monad.Reader
-import Data.Maybe (fromMaybe)
-import Data.Text as T
-import System.Directory (createDirectoryIfMissing, doesFileExist, doesPathExist, findFile, getCurrentDirectory, listDirectory, makeAbsolute)
-import System.FilePath (isExtensionOf, makeRelative, takeDirectory, (-<.>), (</>))
-import Text.Pandoc hiding (ReaderT)
-import Text.Pandoc.Walk (Walkable (walk))
+import           Control.Monad.Reader
+import           Data.Maybe (fromMaybe)
+import           Data.Text as T
+import           System.Directory (createDirectoryIfMissing, doesFileExist
+                                 , doesPathExist, findFile, getCurrentDirectory
+                                 , listDirectory, makeAbsolute
+                                 , getModificationTime)
+import           System.FilePath (isExtensionOf, makeRelative, takeDirectory
+                                , (-<.>), (</>))
+import           Text.Pandoc hiding (ReaderT, getModificationTime)
+import           Text.Pandoc.Walk (Walkable(walk))
+import           Data.Time (UTCTime)
+import           Data.Time.ISO8601
+import           Control.Exception (try)
+import           Data.Either (fromRight)
 
 getLumeaRoot :: ReaderT (Maybe FilePath) IO FilePath
 getLumeaRoot = do
   userPath <- ask
   case userPath of
     Just userPath' -> liftIO $ makeAbsolute userPath'
-    Nothing -> liftIO getCurrentDirectory
+    Nothing        -> liftIO getCurrentDirectory
 
 getLumeaMarkupPath :: ReaderT (Maybe FilePath) IO FilePath
 getLumeaMarkupPath = (</> "site/markup") <$> getLumeaRoot
@@ -21,27 +29,33 @@ getLumeaMarkupPath = (</> "site/markup") <$> getLumeaRoot
 getLumeaHtmlPath :: ReaderT (Maybe FilePath) IO FilePath
 getLumeaHtmlPath = (</> "site/html") <$> getLumeaRoot
 
-isDirty :: FilePath -> Bool
-isDirty _ = True
+isDirty :: FilePath -> ReaderT (Maybe FilePath) IO Bool
+isDirty filepath = do
+  markupTime <- liftIO
+    $ (try :: IO UTCTime -> IO (Either IOError UTCTime))
+    $ getModificationTime filepath
+  htmlTime <- getMirrorPath filepath
+    >>= (liftIO
+         . (try :: IO UTCTime -> IO (Either IOError UTCTime))
+         . getModificationTime)
+  return $ fromRight False ((<) <$> markupTime <*> htmlTime)
 
 replaceLink :: Inline -> Inline
 replaceLink (Link attr inline (url, alt))
   | "org" `isExtensionOf` T.unpack url =
-      let convertedPath = T.unpack url -<.> "html"
-       in Link attr inline (T.pack convertedPath, alt)
+    let convertedPath = T.unpack url -<.> "html"
+    in Link attr inline (T.pack convertedPath, alt)
   | otherwise = Link attr inline (url, alt)
 replaceLink i = i
 
-replaceLinks :: Pandoc -> Pandoc
-replaceLinks = walk replaceLink
-
 toHtml :: T.Text -> IO T.Text
-toHtml markupContents = runIOorExplode $ do
-  template <- compileDefaultTemplate (T.pack "html")
-  orgPandoc <- readOrg def markupContents
-  writeHtml5String
-    def {writerTemplate = Just template}
-    (replaceLinks orgPandoc)
+toHtml markupContents = runIOorExplode
+  $ do
+    template <- compileDefaultTemplate (T.pack "html")
+    orgPandoc <- readOrg def markupContents
+    writeHtml5String
+      def { writerTemplate = Just template }
+      (walk replaceLink orgPandoc)
 
 getMirrorPath :: FilePath -> ReaderT (Maybe FilePath) IO FilePath
 getMirrorPath markupPath = do
@@ -50,20 +64,19 @@ getMirrorPath markupPath = do
   absoluteMarkupPath <- liftIO $ makeAbsolute markupPath
   maybePath <- liftIO $ findFile [lumeaMarkupPath] absoluteMarkupPath
   case maybePath of
-    Just absPath ->
-      return $
-        lumeaHtmlPath </> makeRelative lumeaMarkupPath absPath -<.> "html"
-    Nothing -> error $ "Error: " <> markupPath <> " does not exist."
+    Just absPath -> return
+      $ lumeaHtmlPath </> makeRelative lumeaMarkupPath absPath -<.> "html"
+    Nothing      -> error $ "Error: " <> markupPath <> " does not exist."
 
 buildFile :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildFile markupSrc
-  | isDirty markupSrc = do
-      markupContents <- liftIO $ readFile markupSrc
-      htmlContents <- liftIO $ toHtml $ T.pack markupContents
-      dest <- getMirrorPath markupSrc
-      liftIO $ createDirectoryIfMissing True (takeDirectory dest)
-      liftIO $ writeFile dest $ T.unpack htmlContents
-  | otherwise = return ()
+  -- | isDirty markupSrc      -- todo: fix me
+   = do
+    markupContents <- liftIO $ readFile markupSrc
+    htmlContents <- liftIO $ toHtml $ T.pack markupContents
+    dest <- getMirrorPath markupSrc
+    liftIO $ createDirectoryIfMissing True (takeDirectory dest)
+    liftIO $ writeFile dest $ T.unpack htmlContents
 
 buildDir :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildDir dir = do
