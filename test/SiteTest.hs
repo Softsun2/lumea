@@ -1,8 +1,10 @@
 module Main where
 
+import           Control.Monad.Reader (runReaderT)
+import           Data.Time (getCurrentTime)
 import qualified Site
 import           System.Directory (doesPathExist, listDirectory, makeAbsolute
-                                 , removePathForcibly)
+                                 , removePathForcibly, setModificationTime)
 import           System.FilePath ((</>))
 import           Test.HUnit
 
@@ -50,6 +52,34 @@ buildSiteTest = do
   -- run tests
   buildSiteFromPathTest
 
+isDirtyTest :: IO Test
+isDirtyTest = do
+  -- clean target dir before testing
+  let htmlDir = "test/site-test/site/html"
+  listDirectory htmlDir >>= mapM_ (removePathForcibly . (htmlDir </>))
+  let lumeaRoot = "test/site-test"
+  let getDirty _ = runReaderT
+        (Site.isDirty $ lumeaRoot </> "site/markup/root.org")
+        (Just lumeaRoot)
+  beforeBuild <- getDirty ()
+  Site.buildSite $ Just lumeaRoot -- assume build is working
+  afterBuild <- getDirty ()
+  getCurrentTime >>= setModificationTime (lumeaRoot </> "site/markup/root.org")
+  afterBuildAndTouch <- getDirty ()
+  return
+    $ TestLabel "Dirty file checks"
+    $ TestList
+      [ TestCase (assertBool "Dirty before build" beforeBuild)
+      , TestCase (assertBool "Not dirty after build" $ not afterBuild)
+      , TestCase
+          (assertBool
+             "Dirty after build and touching source"
+             afterBuildAndTouch)]
+
 main :: IO ()
 main = do
-  buildSiteTest >>= runTestTTAndExit
+  buildSiteTest' <- buildSiteTest
+  isDirtyTest' <- isDirtyTest
+  runTestTTAndExit
+    $ TestLabel "Site tests"
+    $ TestList [buildSiteTest', isDirtyTest']
