@@ -1,4 +1,4 @@
-module Site (buildSite) where
+module Site (buildSite, isDirty) where
 
 import           Control.Monad.Reader
 import           Data.Maybe (fromMaybe)
@@ -38,7 +38,7 @@ isDirty filepath = do
     >>= (liftIO
          . (try :: IO UTCTime -> IO (Either IOError UTCTime))
          . getModificationTime)
-  return $ fromRight False ((<) <$> markupTime <*> htmlTime)
+  return $ fromRight True ((>) <$> markupTime <*> htmlTime)
 
 replaceLink :: Inline -> Inline
 replaceLink (Link attr inline (url, alt))
