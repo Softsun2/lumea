@@ -69,14 +69,15 @@ getMirrorPath markupPath = do
     Nothing      -> error $ "Error: " <> markupPath <> " does not exist."
 
 buildFile :: FilePath -> ReaderT (Maybe FilePath) IO ()
-buildFile markupSrc
-  -- | isDirty markupSrc      -- todo: fix me
-   = do
-    markupContents <- liftIO $ readFile markupSrc
-    htmlContents <- liftIO $ toHtml $ T.pack markupContents
-    dest <- getMirrorPath markupSrc
-    liftIO $ createDirectoryIfMissing True (takeDirectory dest)
-    liftIO $ writeFile dest $ T.unpack htmlContents
+buildFile markupSrc = do
+  dirty <- isDirty markupSrc
+  when dirty
+    $ do
+      markupContents <- liftIO $ readFile markupSrc
+      htmlContents <- liftIO $ toHtml $ T.pack markupContents
+      dest <- getMirrorPath markupSrc
+      liftIO $ createDirectoryIfMissing True (takeDirectory dest)
+      liftIO $ writeFile dest $ T.unpack htmlContents
 
 buildDir :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildDir dir = do
