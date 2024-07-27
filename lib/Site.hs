@@ -1,70 +1,69 @@
 module Site (buildSite) where
 
-import Control.Monad.Reader
-import Data.Maybe (fromMaybe)
-import Data.Text as T
-import System.Directory (createDirectoryIfMissing, doesFileExist, doesPathExist, findFile, getCurrentDirectory, listDirectory, makeAbsolute)
-import System.FilePath (isExtensionOf, makeRelative, takeDirectory, (-<.>), (</>))
-import Text.Pandoc hiding (ReaderT)
-import Text.Pandoc.Walk (Walkable (walk))
+import           Control.Monad.Reader
+import           Data.Maybe (fromMaybe)
+import           Data.Text as T
+import           System.Directory (createDirectoryIfMissing, doesFileExist
+                                 , doesPathExist, findFile, getCurrentDirectory
+                                 , listDirectory, makeAbsolute)
+import           System.FilePath (isExtensionOf, makeRelative, takeDirectory
+                                , (-<.>), (</>), normalise)
+import           Text.Pandoc hiding (ReaderT)
+import           Text.Pandoc.Walk (Walkable(walk))
 
-getLumeaRoot :: ReaderT (Maybe FilePath) IO FilePath
-getLumeaRoot = do
-  userPath <- ask
-  case userPath of
-    Just userPath' -> liftIO $ makeAbsolute userPath'
-    Nothing -> liftIO getCurrentDirectory
+getLumeaRoot :: Maybe FilePath -> IO FilePath
+getLumeaRoot = maybe getCurrentDirectory makeAbsolute
 
-getLumeaMarkupPath :: ReaderT (Maybe FilePath) IO FilePath
-getLumeaMarkupPath = (</> "site/markup") <$> getLumeaRoot
+getLumeaMarkupPath :: FilePath -> FilePath
+getLumeaMarkupPath lumeaRoot = lumeaRoot </> "site/markup"
 
-getLumeaHtmlPath :: ReaderT (Maybe FilePath) IO FilePath
-getLumeaHtmlPath = (</> "site/html") <$> getLumeaRoot
+getLumeaHtmlPath :: FilePath -> FilePath
+getLumeaHtmlPath lumeaRoot = lumeaRoot </> "site/html"
 
+-- there must be a way to do this without comparing html file to markup file dates
 isDirty :: FilePath -> Bool
 isDirty _ = True
 
 replaceLink :: Inline -> Inline
-replaceLink (Link attr inline (url, alt))
+replaceLink link@(Link attr inline (url, alt))
   | "org" `isExtensionOf` T.unpack url =
-      let convertedPath = T.unpack url -<.> "html"
-       in Link attr inline (T.pack convertedPath, alt)
-  | otherwise = Link attr inline (url, alt)
+    Link attr inline ((T.pack . (-<.> "html") . T.unpack) url, alt)
+  | otherwise = link
 replaceLink i = i
 
 replaceLinks :: Pandoc -> Pandoc
 replaceLinks = walk replaceLink
 
 toHtml :: T.Text -> IO T.Text
-toHtml markupContents = runIOorExplode $ do
-  template <- compileDefaultTemplate (T.pack "html")
-  orgPandoc <- readOrg def markupContents
-  writeHtml5String
-    def {writerTemplate = Just template}
-    (replaceLinks orgPandoc)
+toHtml markupContents = runIOorExplode
+  $ do
+    template <- compileDefaultTemplate (T.pack "html")
+    orgPandoc <- readOrg def markupContents
+    writeHtml5String
+      def { writerTemplate = Just template }
+      (replaceLinks orgPandoc)
 
-getMirrorPath :: FilePath -> ReaderT (Maybe FilePath) IO FilePath
-getMirrorPath markupPath = do
-  lumeaMarkupPath <- getLumeaMarkupPath
-  lumeaHtmlPath <- getLumeaHtmlPath
-  absoluteMarkupPath <- liftIO $ makeAbsolute markupPath
-  maybePath <- liftIO $ findFile [lumeaMarkupPath] absoluteMarkupPath
-  case maybePath of
-    Just absPath ->
-      return $
-        lumeaHtmlPath </> makeRelative lumeaMarkupPath absPath -<.> "html"
-    Nothing -> error $ "Error: " <> markupPath <> " does not exist."
+-- todo document me
+getMirrorPath :: FilePath -> FilePath -> Maybe FilePath
+getMirrorPath lumeaRoot markupPath =
+  let relativePath = makeRelative (getLumeaMarkupPath lumeaRoot) markupPath
+  in if relativePath == markupPath
+     then Nothing
+     else Just (getLumeaHtmlPath lumeaRoot </> relativePath -<.> "html")
 
+-- IO
 buildFile :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildFile markupSrc
   | isDirty markupSrc = do
-      markupContents <- liftIO $ readFile markupSrc
-      htmlContents <- liftIO $ toHtml $ T.pack markupContents
-      dest <- getMirrorPath markupSrc
-      liftIO $ createDirectoryIfMissing True (takeDirectory dest)
-      liftIO $ writeFile dest $ T.unpack htmlContents
+    markupContents <- liftIO $ readFile markupSrc
+    htmlContents <- liftIO $ toHtml $ T.pack markupContents
+    -- make lumeaRoot and markupSrc absolute
+    lumeaRoot <- ask >>= liftIO . (getLumeaRoot >=> makeAbsolute)
+    liftIO $ createDirectoryIfMissing True (takeDirectory "")
+    liftIO $ writeFile "" $ T.unpack htmlContents
   | otherwise = return ()
 
+-- IO
 buildDir :: FilePath -> ReaderT (Maybe FilePath) IO ()
 buildDir dir = do
   entries <- liftIO $ listDirectory dir
@@ -78,7 +77,8 @@ buildDir dir = do
         then buildFile fp
         else buildDir fp
 
+-- IO
 buildSite :: Maybe FilePath -> IO ()
 buildSite userPath = do
-  markupPath <- runReaderT getLumeaMarkupPath userPath
-  runReaderT (buildDir markupPath) userPath
+  -- markupPath <- getLumeaMarkupPath userPath
+  runReaderT (buildDir "") userPath
