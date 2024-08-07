@@ -8,3 +8,6 @@ dist-newstyle
 cabal.project.local
 # lumea site paths
 site/**
+# env
+.envrc
+.direnv
