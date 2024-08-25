@@ -3,7 +3,6 @@
 module Parser where
 
 import           Control.Monad (void)
-import           Data.Functor (($>))
 import           Text.Parsec
 import           Text.Parsec.String (Parser)
 
@@ -27,6 +26,11 @@ data Object = TextMarkup [Object]
             | PlainText String
   deriving (Show)
 
+plainText :: Parser a -> Parser Object
+plainText end = PlainText . unwords . words
+  <$> manyTill anyChar (lookAhead end)
+
+-- todo clean me
 textMarkup :: Char -> Parser Object
 textMarkup marker = pre *> marker' *> contents <* marker' <* post
   where
@@ -37,11 +41,14 @@ textMarkup marker = pre *> marker' *> contents <* marker' <* post
       , void . choice $ char <$> ['-', '(', '{', '\'', '"']
       , void $ lookAhead marker']
 
-    -- contents may not begin or end with whitespace
-    contents = manyTill anyChar (lookAhead marker')
-      *> if marker == '=' || marker == '~'
-         then return $ PlainText "verbatim/code"
-         else return $ PlainText "sequence of objects"
+    contents = notFollowedBy space
+      *> (if marker == '='
+            || marker == '~' -- todo: update when recursive objects added
+          then TextMarkup . flip (:) []
+            <$> plainText (try (space *> marker') <|> marker')
+          else TextMarkup . flip (:) []
+            <$> plainText (try (space *> marker') <|> marker'))
+      <* notFollowedBy space
 
     post = eof
       <|> (choice
