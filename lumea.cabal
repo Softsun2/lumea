@@ -13,30 +13,38 @@ common warnings
 
 library
     build-depends:
-        base ^>=4.16.4.0,
+        base,
         parsec,
         monads-fd,
         text,
         filepath, directory,
         network, bytestring
     hs-source-dirs: lib
-    exposed-modules: Site, Server, Parser
+    exposed-modules: Parser
     default-language: Haskell2010
 
 executable lumea
     import:           warnings
     main-is:          Main.hs
     hs-source-dirs:   src
-    build-depends: base ^>=4.16.4.0, Lumea
+    build-depends: base
     default-language: Haskell2010
+    other-modules: Site, Server, Parser
 
 test-suite site-test
     type: exitcode-stdio-1.0
     main-is: SiteTest.hs
     build-depends:
-        base ^>=4.16.4.0,
+        base,
         HUnit,
         Lumea,
         filepath, directory
     hs-source-dirs: test
     default-language: Haskell2010
+
+test-suite parser-test
+    type: exitcode-stdio-1.0
+    main-is: ParserTest.hs
+    build-depends: base, HUnit, Lumea
+    hs-source-dirs: test
+    default-language: Haskell2010    
